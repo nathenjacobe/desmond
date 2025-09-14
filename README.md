@@ -13,3 +13,4 @@
 - add panning / zooming, ideally with caching to prevent expensive redraws
 - fix single points being rendered radially for implicit
 - fix lines being drawn with strange thicknesses for implicit
+- abandon python and rewrite this in rust so that i can manually implement CORDIC because it looks super cool
