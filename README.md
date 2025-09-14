@@ -1,7 +1,7 @@
 # A graphing calculator inspired by Desmos.
 
 ## Features:
-- supports both explicit (of the form (y=) f(x)) and implicit relationships (of the form f(x,y) = f(x,y))
+- supports both explicit (of the form (y=) f(x)) and implicit relationships (of the form f(x,y) = g(x,y))
 - all trigonometric functions: sin, cos, tan, as well as their hyperbolic, inverse and reciprocal functions
 - permits implicit multiplication (i.e. you can do 2sin(x) instead of 2*sin(x), or sec(x)tan(x) instead of sec(x) * tan(x))
 - draws asymptotes as red dashed lines for division-by-zero cases
