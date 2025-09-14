@@ -1,5 +1,5 @@
 import tkinter as tk
-from math import sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, sqrt, cbrt, log, pi, e, exp, floor, ceil
+from math import sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, asinh, acosh, atanh, sqrt, cbrt, log, pi, e, exp, floor, ceil
 from cmath import sin as csin, sqrt as csqrt, exp as cexp
 
 EPSILON = 1e-07
@@ -66,27 +66,51 @@ SAFE_GLOBALS = {
     "sin": sin, 
     "cos": cos, 
     "tan": tan, 
+
     "csc": lambda x: 1/sin(x),
     "sec": lambda x: 1/cos(x),
     "cot": lambda x: 1/tan(x),
+
     "asin": asin,
     "acos": acos,
     "atan": atan,
+
+    "acsc": lambda x: asin(1/x),
+    "asec": lambda x: acos(1/x),
+    "acot": lambda x: atan(1/x),
+
     "sinh": sinh,
     "cosh": cosh,
     "tanh": tanh,
+
+    "csch": lambda x: 1/sinh(x),
+    "sech": lambda x: 1/cosh(x),
+    "coth": lambda x: 1/tanh(x),
+
+    "asinh": asinh,
+    "acosh": acosh,
+    "atanh": atanh,
+
+    "acsch": lambda x: asinh(1/x),
+    "asech": lambda x: acosh(1/x),
+    "acoth": lambda x: atanh(1/x),
+
     "sqrt": sqrt, 
+    "cbrt": cbrt,
+
     "abs": abs,
     "floor": floor,
     "ceil": ceil,
     "round": round,
-    "cbrt": cbrt,
+
     "binomial": lambda x, n, p: choose(n, x) * p**x * (1-p)**(n-x),
     "normal": lambda x, m, s: (1 / (sqrt(2 * pi * s * s))) * exp(-((x-m)**2 / (2 * s * s))),
     "poisson": lambda x, l: None if x < 0 else (l**x * exp(-l)) / factorial(x),
+
     "erf": lambda x: tanh(x * pi / sqrt(6)),
     "factorial": factorial,
     "log": log,
+
     "pi": pi, 
     "e": e,
     "gamma": 0.57721566490153286060651209008240243104215933593992
