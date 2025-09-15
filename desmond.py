@@ -379,8 +379,6 @@ class Desmond:
                     else:
                         segments.append((inter[1], inter[2]))
                         segments.append((inter[3], inter[0]))
-                else:
-                    pass # im 95% sure you can't have this case
 
         endpoint_map = defaultdict(list)
 
@@ -458,4 +456,5 @@ class Desmond:
 if __name__ == "__main__":
     root = tk.Tk()
     app = Desmond(root)
+
     root.mainloop()
