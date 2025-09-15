@@ -7,10 +7,11 @@
 - draws asymptotes as red dashed lines for division-by-zero cases
 - distributions: binomial(x, number_of_trials, probability), normal(x, mean, stdev), poisson(x, freq)
 - constants: e, pi, euler-mascheroni (gamma; correct to 50 d.p.)
-- generic: abs, floor, ceil, round, erf (approximated as tanh(xpi/sqrt(6))), factorial (uses Lanczos approximation for gamma function), log and sqrt/cbrt
+- generic: abs, floor, ceil, round, max, min, clamp, erf (approximated as tanh(xpi/sqrt(6))), factorial (uses Lanczos approximation for gamma function), log and sqrt/cbrt
 
 ## To Do:
 - add panning / zooming, ideally with caching to prevent expensive redraws
 - allow multiple relations to be drawn simultaneously and coloured independantly, and allow them to be removed or hidden too.
 - abandon python and rewrite this in rust so that i can manually implement CORDIC because it looks super cool
+
 
