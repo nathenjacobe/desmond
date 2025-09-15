@@ -1,9 +1,9 @@
 import tkinter as tk
-from math import sin, cos, tan, asin, acos, atan, sinh, cosh, tanh, asinh, acosh, atanh, sqrt, cbrt, log, pi, e, exp, floor, ceil
+from math import sin, cos, asin, acos, atan, sinh, cosh, tanh, asinh, acosh, atanh, sqrt, cbrt, log, pi, e, exp, floor, ceil
 from cmath import sin as csin, sqrt as csqrt, exp as cexp
+from collections import defaultdict
 
 EPSILON = 1e-07
-LINE_EPSILON = 0.1
 g = 7
 n = 9
 p = [
@@ -65,11 +65,11 @@ def choose(n, k):
 SAFE_GLOBALS = {
     "sin": sin, 
     "cos": cos, 
-    "tan": tan, 
+    "tan": lambda x: sin(x)/cos(x), 
 
     "csc": lambda x: 1/sin(x),
     "sec": lambda x: 1/cos(x),
-    "cot": lambda x: 1/tan(x),
+    "cot": lambda x: cos(x)/sin(x),
 
     "asin": asin,
     "acos": acos,
@@ -143,9 +143,10 @@ class Desmond:
         self.entry.pack(side=tk.LEFT, expand=True, fill=tk.X)
         self.entry.insert(0, "")
 
+        # thanks stack overflow!!1!
         self.entry.bind('<Control-a>', self._select_all)
 
-        self.plot_button = tk.Button(control_frame, text="Plot", command=self.plot_dispatcher)
+        self.plot_button = tk.Button(control_frame, text="plot!!", command=self.plot_dispatcher)
         self.plot_button.pack(side=tk.LEFT, padx=5)
 
         self.draw_axes()
@@ -181,6 +182,10 @@ class Desmond:
         x = (x_canvas / self.width) * (self.range_x[1] - self.range_x[0]) + self.range_x[0]
         y = ((self.height - y_canvas) / self.height) * (self.range_y[1] - self.range_y[0]) + self.range_y[0]
         return x, y
+    
+    def key_of(self, pt):
+        cx, cy = self.to_canvas_coords(pt[0], pt[1])
+        return (int(round(cx)), int(round(cy)))
 
     def draw_axes(self):
         self.canvas.delete("all")
@@ -279,29 +284,171 @@ class Desmond:
             except (ValueError, OverflowError, TypeError):
                 last_c_coords = None
 
-    def plot_implicit_function(self, expression_str):
+    def plot_implicit_function(self, expr_str):
         try:
-            code = compile(expression_str, '<string>', 'eval')
+            code = compile(expr_str, "<string>", "eval")
         except SyntaxError:
             self.show_error("invalid syntax. did you forget to close your brackets?")
             return
 
-        img = tk.PhotoImage(width=self.width, height=self.height)
-        self.canvas.create_image((self.width / 2, self.height / 2), image=img, state="normal")
-        
-        line_color = "#0000ff"
+        # the idea for this is to use the 2d version of marching cubes, marching squares
+        # cf: https://en.wikipedia.org/wiki/Marching_squares. the diagrams on there are really helpful for visualising this
+        # There are only 16 cases and they can all be resolved to generate segment(s).
+        # a problem arises if you have a saddle point, which is ambiguous. for this case, i simply check the center and go from there
+        # to form the curve, it stitches all the segments together, moving backwards and forwards...
+        # ... to build a series of connected segments, called a polyline
 
-        for px in range(self.width):
-            for py in range(self.height):
-                x, y = self.to_math_coords(px, py)
+
+        # sample interval; keeping at 5 for, now but in theory lower = better but less performant and more susceptible to noise?
+        # something something Nyquist something something
+        cell_px = 5
+        cols = max(4, self.width // cell_px)
+        rows = max(4, self.height // cell_px)
+
+        # sample and cache
+        grid_vals = [[None]*(cols+1) for _ in range(rows+1)]
+        pts = [[(0,0)]*(cols+1) for _ in range(rows+1)]
+        for j in range(rows+1):
+            cy = round(j * (self.height-1) / rows)
+            for i in range(cols+1):
+                cx = round(i * (self.width-1) / cols)
+                x, y = self.to_math_coords(cx, cy)
+                pts[j][i] = (x, y)
                 try:
-                    result = eval(code, SAFE_GLOBALS, {"x": x, "y": y})
-                    if abs(result) < LINE_EPSILON:
-                        img.put(line_color, (px, py))
-                except (ZeroDivisionError, ValueError, OverflowError, TypeError):
-                    continue
+                    v = eval(code, SAFE_GLOBALS, {"x": x, "y": y})
+                    grid_vals[j][i] = float(v) if isinstance(v, (int, float)) else None
+                except Exception:
+                    grid_vals[j][i] = None
 
-        self.canvas.image = img
+        segments = []
+
+        def interpolate(pa, pb, va, vb):
+            # linear interpolation parameter t in [0,1] where value crosses zero
+            denom = (va - vb)
+            if abs(denom) < EPSILON:
+                t = 0.5
+            else:
+                t = va / denom
+            t = max(0.0, min(1.0, t))
+            x = pa[0] + t * (pb[0] - pa[0])
+            y = pa[1] + t * (pb[1] - pa[1])
+            return (x, y)
+
+        for j in range(rows):
+            for i in range(cols):
+                v00 = grid_vals[j][i]
+                v10 = grid_vals[j][i+1]
+                v11 = grid_vals[j+1][i+1]
+                v01 = grid_vals[j+1][i]
+                if None in (v00, v10, v11, v01):
+                    continue
+                p00 = pts[j][i]; p10 = pts[j][i+1]; p11 = pts[j+1][i+1]; p01 = pts[j+1][i]
+
+                corners = [v00, v10, v11, v01]
+                pattern = 0
+                for k, val in enumerate(corners):
+                    if val < 0: pattern |= (1 << k)
+
+                # for all 16 patterns decide segments using interpolation
+                inter = []
+                edges = [ (p00,p10,v00,v10), (p10,p11,v10,v11),
+                          (p11,p01,v11,v01), (p01,p00,v01,v00) ]
+                for (pa,pb,va,vb) in edges:
+                    if va * vb < 0:
+                        inter.append(interpolate(pa,pb,va,vb))
+                    elif abs(va) <= EPSILON:
+                        inter.append(pa)
+                    elif abs(vb) <= EPSILON:
+                        inter.append(pb)
+
+                # 2 intersections = make a segment
+                if len(inter) == 2:
+                    segments.append((inter[0], inter[1]))
+                # 4 intersections = get the center and use it to determine where to make the 2 segments
+                elif len(inter) == 4:
+                    cx = (p00[0]+p10[0]+p11[0]+p01[0])/4.0
+                    cy = (p00[1]+p10[1]+p11[1]+p01[1])/4.0
+                    try:
+                        center_val = eval(code, SAFE_GLOBALS, {"x":cx, "y":cy})
+                        center_pos = center_val > 0
+                    except Exception:
+                        center_pos = True
+                    if center_pos:
+                        segments.append((inter[0], inter[1]))
+                        segments.append((inter[2], inter[3]))
+                    else:
+                        segments.append((inter[1], inter[2]))
+                        segments.append((inter[3], inter[0]))
+                else:
+                    pass # im 95% sure you can't have this case
+
+        endpoint_map = defaultdict(list)
+
+        seg_used = [False]*len(segments)
+        for idx, (a,b) in enumerate(segments):
+            endpoint_map[self.key_of(a)].append((idx, 'a'))
+            endpoint_map[self.key_of(b)].append((idx, 'b'))
+
+        polylines = []
+        # this is kinda messy but it gets the job done
+        # the idea is to collate all the segments and connect them if they are sufficiently close
+        # then feed it into create_line to hopefully render a beautiful continuous curve.
+        for i_seg, seg in enumerate(segments):
+            if seg_used[i_seg]:
+                continue
+            a,b = seg
+            seg_used[i_seg] = True
+            poly = [a, b]
+
+            # forward
+            cur = b
+            while True:
+                k = self.key_of(cur)
+                found = False
+                for (sid, _) in endpoint_map.get(k, []): # for some reason if i don't default to [] it doesn't work?
+                    if seg_used[sid]: continue
+                    seg_used[sid] = True
+                    sa, sb = segments[sid]
+                    nxt = sb if self._points_close(sa, cur) else sa
+                    poly.append(nxt)
+                    cur = nxt
+                    found = True
+                    break
+                if not found: break
+
+            # backward
+            cur = a
+            while True:
+                k = self.key_of(cur)
+                found = False
+                for (sid, _) in endpoint_map.get(k, []):
+                    if seg_used[sid]: continue
+                    seg_used[sid] = True
+                    sa, sb = segments[sid]
+                    nxt = sb if self._points_close(sa, cur) else sa
+                    poly.insert(0, nxt)
+                    cur = nxt
+                    found = True
+                    break
+                if not found: break
+
+            if len(poly) >= 2:
+                polylines.append(poly)
+
+        # draw all gathered polylines
+        for poly in polylines:
+            coords = []
+            for (x,y) in poly:
+                cx, cy = self.to_canvas_coords(x, y)
+                coords.extend((cx, cy))
+            self.canvas.create_line(*coords, fill="blue", width=2)
+
+    def _points_close(self, p1, p2, tol_px=3):
+        c1 = self.to_canvas_coords(p1[0], p1[1])
+        c2 = self.to_canvas_coords(p2[0], p2[1])
+        dx = c1[0] - c2[0]; dy = c1[1] - c2[1]
+        return (dx*dx + dy*dy) <= (tol_px*tol_px)
+
 
     def show_error(self, message):
         self.canvas.create_text(
