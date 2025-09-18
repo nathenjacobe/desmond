@@ -11,7 +11,4 @@
 
 ## To Do:
 - add panning / zooming, ideally with caching to prevent expensive redraws
-- allow multiple relations to be drawn simultaneously and coloured independantly, and allow them to be removed or hidden too.
 - abandon python and rewrite this in rust so that i can manually implement CORDIC because it looks super cool
-
-
