@@ -1,0 +1,7 @@
+x^2 - y^2 = cosh(xy)sin(x^2y^2)
+acsch(xy) = xysin(xy)cos(xy)
+x^2sin(y) = y^2sin(x)
+e^sin(x)cos(y) = xy
+cos(x)sech(x) = sin(y)csch(y)
+factorial(x)
+erf(log(x))
